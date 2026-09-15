@@ -1,6 +1,7 @@
 """Capture IMX704 point-cloud frames with the installed Python library wheel."""
 
 import argparse
+import math
 import sys
 import time
 from pathlib import Path
@@ -34,7 +35,8 @@ def get_cameras(camera_api):
 
 
 def capture_frames(camera_api, args):
-    if args.camera_index < 0 or args.frames < 1 or args.timeout_ms < 1 or args.startup_delay < 0:
+    if (args.camera_index < 0 or args.frames < 1 or args.timeout_ms < 1 or
+            not math.isfinite(args.startup_delay) or args.startup_delay < 0):
         raise ValueError("Invalid capture options")
     if args.output is not None and args.output.suffix != ".npy":
         raise ValueError("--output must end in .npy")
@@ -44,6 +46,9 @@ def capture_frames(camera_api, args):
         raise ValueError("Camera index out of range ({} detected)".format(len(cameras)))
 
     selected = cameras[args.camera_index]
+    supported_modes = selected.get("supported_modes", {})
+    if supported_modes and args.mode.lower() not in {str(mode).lower() for mode in supported_modes}:
+        raise ValueError("Mode {} is not supported by this camera".format(args.mode))
     camera = camera_api.camera(selected["id"], int(args.mode, 16),
                                processing_flags=["point_cloud"])
     streaming = False
@@ -58,9 +63,13 @@ def capture_frames(camera_api, args):
         last_frame = None
         for count in range(args.frames):
             last_frame = camera.get_frame(args.timeout_ms)
+            if not last_frame.get("point_cloud"):
+                raise RuntimeError("Frame has no point cloud")
             cloud = last_frame["point_cloud"][0]
+            if cloud.ndim != 3 or cloud.shape[-1] != 3:
+                raise RuntimeError("Unexpected point-cloud shape: {}".format(cloud.shape))
             print("Frame {}: id={}, points={}".format(
-                count + 1, last_frame["frame_id"], len(cloud)))
+                count + 1, last_frame["frame_id"], cloud.shape[0] * cloud.shape[1]))
 
         elapsed = time.monotonic() - started_at
         print("Captured {} frames in {:.2f}s ({:.2f} FPS)".format(

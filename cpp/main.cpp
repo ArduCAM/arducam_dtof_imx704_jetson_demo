@@ -62,7 +62,7 @@ bool parse_args(int argc, char** argv, options& opts) {
         else return false;
         if (!parse_unsigned(argv[++i], *target, base)) return false;
     }
-    return opts.frames > 0 && opts.timeout_ms > 0;
+    return opts.list_only || (opts.frames > 0 && opts.timeout_ms > 0);
 }
 
 struct camera_session {
@@ -70,10 +70,28 @@ struct camera_session {
     bool opened = false;
     bool streaming = false;
 
-    ~camera_session() {
-        if (streaming) device->stop();
-        if (opened) device->close();
+    int finish() {
+        int status = 0;
+        if (streaming) {
+            const int result = device->stop();
+            streaming = false;
+            if (result != 0) {
+                std::cerr << "Stream-off failed: " << result << '\n';
+                status = 1;
+            }
+        }
+        if (opened) {
+            const int result = device->close();
+            opened = false;
+            if (result != 0) {
+                std::cerr << "Close failed: " << result << '\n';
+                status = 1;
+            }
+        }
+        return status;
     }
+
+    ~camera_session() { finish(); }
 };
 
 } // namespace
@@ -98,9 +116,12 @@ int main(int argc, char** argv) {
         return 1;
     }
     if (opts.list_only) {
-        for (std::size_t i = 0; i < cameras.size(); ++i)
+        for (std::size_t i = 0; i < cameras.size(); ++i) {
             std::cout << "Camera #" << i << ": " << cameras[i].id
                       << " (" << cameras[i].model << ")\n";
+            for (const auto& mode : cameras[i].supported_modes)
+                std::cout << "  Mode: 0x" << std::hex << mode.first << std::dec << '\n';
+        }
         return 0;
     }
     if (opts.camera_index >= cameras.size()) {
@@ -173,5 +194,6 @@ int main(int argc, char** argv) {
     std::cout << "Received " << received << '/' << opts.frames << " frames in "
               << std::fixed << std::setprecision(2) << elapsed << "s ("
               << (elapsed > 0 ? received / elapsed : 0.0) << " FPS)\n";
-    return received > 0 ? 0 : 1;
+    const int cleanup_result = session.finish();
+    return received == opts.frames && cleanup_result == 0 ? 0 : 1;
 }
