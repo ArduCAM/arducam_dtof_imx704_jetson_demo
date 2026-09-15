@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Minimal C++ and Python examples for discovering an IMX704 camera and capturing point-cloud frames on Jetson. The Python example can save the last frame's first-echo point cloud as a NumPy `.npy` file. These examples do not use embedded data (EBD).
+Minimal C++ and Python examples for discovering an IMX704 camera and capturing point-cloud frames on Jetson. The Python example can save the last frame's first-echo point cloud as a NumPy `.npy` file.
 
 The camera board begins initializing after stream-on. Both examples therefore wait **2 seconds after starting the stream**, before requesting the first frame. You can adjust or disable that delay with a command-line option.
 
