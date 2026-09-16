@@ -23,19 +23,75 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def draw_frame(depth, cloud, image, cloud_axis, figure, pyplot):
-    valid_depth = depth[np.isfinite(depth) & (depth > 0)]
-    image.set_data(depth)
-    image.set_clim(0, max(1.0, float(np.percentile(valid_depth, 99))) if valid_depth.size else 1.0)
+class LiveDisplay:
+    """Update two persistent GPU visuals in one window."""
 
-    points = cloud[np.isfinite(cloud).all(axis=2) & (cloud[:, :, 2] > 0)]
-    cloud_axis.clear()
-    if points.size:
-        cloud_axis.scatter(points[:, 0], points[:, 1], points[:, 2],
-                           c=points[:, 2], cmap="viridis", s=8)
-    cloud_axis.set(title="Point cloud", xlabel="X (mm)", ylabel="Y (mm)", zlabel="Z (mm)")
-    figure.canvas.draw_idle()
-    pyplot.pause(0.001)
+    def __init__(self):
+        from vispy import color, scene
+
+        self.cmap = color.get_colormap("viridis")
+        self.canvas = scene.SceneCanvas(title="IMX704 Depth and Point Cloud",
+                                        size=(1100, 550), keys="interactive", show=False)
+        self.app = self.canvas.app
+        self.closed = False
+        self.canvas.events.close.connect(self._on_close)
+        grid = self.canvas.central_widget.add_grid()
+        depth_view = grid.add_view(row=0, col=0)
+        depth_view.camera = scene.PanZoomCamera(aspect=1)
+        depth_view.camera.rect = (0, 0, 24, 24)
+        self.depth_view = depth_view
+        self.image = scene.visuals.Image(np.zeros((24, 24, 4), dtype=np.float32),
+                                         interpolation="nearest", parent=depth_view.scene)
+        self.depth_shape = (24, 24)
+
+        cloud_view = grid.add_view(row=0, col=1)
+        cloud_view.camera = scene.TurntableCamera(fov=45, elevation=30, azimuth=30)
+        cloud_view.camera.scale_factor = 2500.0
+        self.markers = scene.visuals.Markers(parent=cloud_view.scene)
+        self.canvas.show()
+        self.app.process_events()
+
+    def _on_close(self, event):
+        self.closed = True
+
+    def update(self, depth, cloud):
+        self.image.set_data(colorize_depth(depth, self.cmap))
+        if depth.shape != self.depth_shape:
+            height, width = depth.shape
+            self.depth_view.camera.set_range(x=(0, width), y=(0, height), margin=0)
+            self.depth_shape = depth.shape
+
+        points = cloud[np.isfinite(cloud).all(axis=2) & (cloud[:, :, 2] > 0)]
+        if points.size:
+            z_min, z_max = float(points[:, 2].min()), float(points[:, 2].max())
+            z = normalize(points[:, 2], z_min, z_max)
+            colors = self.cmap.map(z.astype(np.float32))
+            self.markers.set_data(points.astype(np.float32), face_color=colors,
+                                  edge_width=0, size=7)
+        else:
+            self.markers.set_data(np.empty((0, 3), dtype=np.float32), edge_width=0)
+        self.app.process_events()
+
+    def close(self):
+        self.canvas.close()
+
+
+def normalize(values, low, high):
+    if high <= low:
+        return np.zeros_like(values, dtype=np.float32)
+    return np.clip((values - low) / (high - low), 0, 1).astype(np.float32)
+
+
+def colorize_depth(depth, cmap):
+    """Match the viewer's mirrored, auto-ranged depth image and red invalid pixels."""
+    mirrored = np.flip(depth, axis=1)
+    finite = np.isfinite(mirrored)
+    safe = np.where(finite, mirrored, 0)
+    low, high = float(safe.min()), float(safe.max())
+    normalized = normalize(safe, low, high)
+    rgba = cmap.map(normalized.ravel()).reshape(*depth.shape, 4)
+    rgba[~finite | (mirrored == 0)] = (1, 0, 0, 1)
+    return rgba.astype(np.float32)
 
 
 def run(camera_api, args):
@@ -70,8 +126,7 @@ def run(camera_api, args):
     camera = camera_api.camera(info["id"], mode,
                                processing_flags=["cartesian_depth", "point_cloud"])
     streaming = False
-    figure = None
-    pyplot = None
+    display = None
     try:
         camera.configure(sync_mode="master", number_of_echo=1)
         camera.start()
@@ -80,23 +135,15 @@ def run(camera_api, args):
             time.sleep(args.startup_delay)
 
         if not args.no_display:
-            import matplotlib.pyplot as pyplot
-            if args.frames == 0 and pyplot.get_backend().lower() == "agg":
-                raise RuntimeError("A graphical Matplotlib backend is required for live display")
-            pyplot.ion()
-            figure = pyplot.figure("IMX704", figsize=(11, 5))
-            depth_axis = figure.add_subplot(1, 2, 1)
-            cloud_axis = figure.add_subplot(1, 2, 2, projection="3d")
-            image = depth_axis.imshow(np.zeros((24, 24)), cmap="viridis", vmin=0, vmax=1)
-            depth_axis.set(title="Depth", xlabel="X", ylabel="Y")
-            figure.tight_layout()
-            pyplot.show(block=False)
+            display = LiveDisplay()
 
         count = 0
         last_cloud = None
         started_at = time.monotonic()
         while args.frames == 0 or count < args.frames:
-            if figure is not None and not pyplot.fignum_exists(figure.number):
+            if display is not None:
+                display.app.process_events()
+            if display is not None and display.closed:
                 break
             frame = camera.get_frame(1000)
             depth, cloud = frame["cartesian_depth"][0], frame["point_cloud"][0]
@@ -104,8 +151,8 @@ def run(camera_api, args):
                 raise RuntimeError("Unexpected depth or point-cloud shape")
             count += 1
             last_cloud = cloud
-            if figure is not None:
-                draw_frame(depth, cloud, image, cloud_axis, figure, pyplot)
+            if display is not None:
+                display.update(depth, cloud)
 
         elapsed = time.monotonic() - started_at
         print("Captured {} frames ({:.2f} FPS)".format(count, count / elapsed if elapsed else 0.0))
@@ -113,8 +160,8 @@ def run(camera_api, args):
             np.save(args.output, last_cloud)
             print("Saved {}".format(args.output))
     finally:
-        if figure is not None:
-            pyplot.close(figure)
+        if display is not None:
+            display.close()
         try:
             if streaming:
                 camera.stop()

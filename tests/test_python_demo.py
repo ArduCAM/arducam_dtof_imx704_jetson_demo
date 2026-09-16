@@ -90,31 +90,29 @@ class DemoTests(unittest.TestCase):
             demo.run(FakeApi(FakeCamera()), args)
             self.assertEqual(np.load(output).shape, (2, 3, 3))
 
-    def test_depth_and_point_cloud_share_one_figure(self):
-        try:
-            import matplotlib
-            matplotlib.use("Agg")
-            import matplotlib.pyplot as pyplot
-        except Exception as exc:
-            self.skipTest("Matplotlib is unavailable: {}".format(exc))
+    def test_display_updates_and_closes(self):
         camera = FakeCamera()
         args = demo.parse_args(["--frames", "1", "--startup-delay", "0"])
-        with patch.object(pyplot, "show"), patch.object(pyplot, "pause"):
+        with patch.object(demo, "LiveDisplay") as display_class:
+            display_class.return_value.closed = False
             demo.run(FakeApi(camera), args)
+        display = display_class.return_value
+        display.update.assert_called_once()
+        display.close.assert_called_once()
         self.assertIn("stop", camera.calls)
         self.assertIn("close", camera.calls)
 
-        figure = pyplot.figure()
-        depth_axis = figure.add_subplot(1, 2, 1)
-        cloud_axis = figure.add_subplot(1, 2, 2, projection="3d")
-        image = depth_axis.imshow(np.zeros((2, 3)))
-        frame = FakeCamera().get_frame(1000)
-        with patch.object(pyplot, "pause"):
-            demo.draw_frame(frame["cartesian_depth"][0], frame["point_cloud"][0],
-                            image, cloud_axis, figure, pyplot)
-        self.assertEqual(image.get_array().shape, (2, 3))
-        self.assertEqual(len(cloud_axis.collections), 1)
-        pyplot.close(figure)
+    def test_depth_matches_viewer_orientation_and_invalid_color(self):
+        depth = np.array([[0, 100, 200], [300, 400, np.nan]], dtype=np.float32)
+        class GrayMap:
+            def map(self, values):
+                return np.column_stack((values, values, values, np.ones_like(values)))
+
+        rgba = demo.colorize_depth(depth, GrayMap())
+        self.assertEqual(rgba.shape, (2, 3, 4))
+        np.testing.assert_array_equal(rgba[0, 2], [1, 0, 0, 1])
+        np.testing.assert_array_equal(rgba[1, 0], [1, 0, 0, 1])
+        self.assertAlmostEqual(rgba[0, 0, 0], 0.5)
 
     def test_hex_mode_with_prefix(self):
         camera = FakeCamera()
@@ -123,16 +121,11 @@ class DemoTests(unittest.TestCase):
         demo.run(FakeApi(camera), args)
         self.assertIn("get_frame", camera.calls)
 
-    def test_default_live_mode_needs_a_gui_backend(self):
-        try:
-            import matplotlib
-            matplotlib.use("Agg")
-            import matplotlib.pyplot as pyplot
-        except Exception as exc:
-            self.skipTest("Matplotlib is unavailable: {}".format(exc))
+    def test_display_initialization_failure_cleans_up(self):
         camera = FakeCamera()
-        with self.assertRaisesRegex(RuntimeError, "graphical Matplotlib backend"):
-            demo.run(FakeApi(camera), demo.parse_args(["--startup-delay", "0"]))
+        with patch.object(demo, "LiveDisplay", side_effect=RuntimeError("no OpenGL")):
+            with self.assertRaisesRegex(RuntimeError, "no OpenGL"):
+                demo.run(FakeApi(camera), demo.parse_args(["--startup-delay", "0"]))
         self.assertEqual(camera.calls, ["configure", "start", "stop", "close"])
 
 

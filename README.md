@@ -10,7 +10,7 @@ The camera board begins initializing after stream-on. Both examples therefore wa
 
 - A Jetson with a connected IMX704 camera and a working camera driver.
 - For C++: a C++17 compiler, CMake 3.18+, and the `libimx704-dev` package (or an SDK prefix containing `include/imx704_camera` and `libimx704_camera.a`).
-- For Python: Python 3.8+, a graphical desktop with a usable Matplotlib GUI backend (Tk or Qt), and an `arducam-imx704` wheel matching your Python version and aarch64 platform. [requirements.txt](requirements.txt) installs NumPy below version 2 and Matplotlib.
+- For Python: Python 3.8+, a graphical desktop with OpenGL support, and an `arducam-imx704` wheel matching your Python version and aarch64 platform. [requirements.txt](requirements.txt) installs NumPy below version 2, VisPy, and PySide6.
 
 Only one example can hold the camera at a time.
 
@@ -48,7 +48,7 @@ python3 -m venv .venv
 .venv/bin/python python/demo.py --frames 10 --output point_cloud.npy
 ```
 
-By default, the Python example runs until you close its window. It shows depth and point cloud in one window. Use `--frames 10` for a finite run, or `--no-display --frames 10` on a machine without a desktop. The saved `.npy` file contains the last frame's first-echo point cloud as an `(H, W, 3)` array. The `--no-deps` install keeps the NumPy version selected by `requirements.txt`.
+By default, the Python example runs until you close its window. VisPy shows depth and point cloud in one OpenGL window. The depth image follows the viewer's camera orientation and marks invalid pixels red. Use `--frames 10` for a finite run, or `--no-display --frames 10` on a machine without a desktop. The saved `.npy` file contains the last frame's first-echo point cloud as an `(H, W, 3)` array. The `--no-deps` install keeps the NumPy version selected by `requirements.txt`.
 
 ## Common options
 
