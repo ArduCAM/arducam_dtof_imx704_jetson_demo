@@ -131,7 +131,7 @@ def run(camera_api, args):
     streaming = False
     display = None
     try:
-        camera.configure(sync_mode="master", number_of_echo=1)
+        camera.configure(number_of_echo=1)
         camera.start()
         streaming = True
 

@@ -160,8 +160,6 @@ int main(int argc, char** argv) {
     config.enable_cartesian_depth = true;
     result = session.device->configure_camera_output(config);
     if (result == 0)
-        result = session.device->configure_camera_sync_mode(camera_sync_master_mode);
-    if (result == 0)
         result = session.device->configure_camera_echo(1);
     if (result != 0) {
         std::cerr << "Configure failed: " << result << '\n';
