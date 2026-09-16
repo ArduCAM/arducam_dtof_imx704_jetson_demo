@@ -6,6 +6,9 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <stdexcept>
+
+#include "live_display.h"
 
 #include <imx704_camera/camera.h>
 #include <imx704_camera/camera_manager.h>
@@ -18,13 +21,16 @@ struct options {
     bool list_only = false;
     unsigned int camera_index = 0;
     unsigned int mode = 0x311C;
-    unsigned int frames = 10;
-    unsigned int timeout_ms = 100;
+    unsigned int frames = 0;
+    unsigned int timeout_ms = 1000;
+    bool no_display = false;
 };
 
 void usage(const char* name) {
     std::cout << "Usage: " << name << " [--list] [--camera-index N] [--mode HEX]"
-              << " [--frames N] [--timeout-ms N]\n";
+              << " [--frames N] [--timeout-ms N] [--no-display]\n"
+              << "  --frames 0 runs until the display window closes (default).\n"
+              << "  --no-display requires --frames greater than 0.\n";
 }
 
 bool parse_unsigned(const char* text, unsigned int& value, int base = 10) {
@@ -49,6 +55,10 @@ bool parse_args(int argc, char** argv, options& opts) {
             opts.list_only = true;
             continue;
         }
+        if (arg == "--no-display") {
+            opts.no_display = true;
+            continue;
+        }
         if (i + 1 >= argc) return false;
         unsigned int* target = nullptr;
         int base = 10;
@@ -59,7 +69,7 @@ bool parse_args(int argc, char** argv, options& opts) {
         else return false;
         if (!parse_unsigned(argv[++i], *target, base)) return false;
     }
-    return opts.list_only || (opts.frames > 0 && opts.timeout_ms > 0);
+    return opts.list_only || (opts.timeout_ms > 0 && (!opts.no_display || opts.frames > 0));
 }
 
 struct camera_session {
@@ -147,6 +157,7 @@ int main(int argc, char** argv) {
 
     camera_output_configuration config{};
     config.enable_point_cloud = true;
+    config.enable_cartesian_depth = true;
     result = session.device->configure_camera_output(config);
     if (result == 0)
         result = session.device->configure_camera_sync_mode(camera_sync_master_mode);
@@ -164,31 +175,51 @@ int main(int argc, char** argv) {
     }
     session.streaming = true;
 
+    std::unique_ptr<LiveDisplay> display;
+    try {
+        if (!opts.no_display) {
+            const auto& mode_info = selected.supported_modes.at(opts.mode);
+            display = std::make_unique<LiveDisplay>(mode_info.sensor_width, mode_info.sensor_height);
+        }
+    } catch (const std::exception& error) {
+        std::cerr << "Display error: " << error.what() << '\n';
+        return 1;
+    }
+
     const auto started_at = std::chrono::steady_clock::now();
     unsigned int received = 0;
-    for (unsigned int attempt = 0; attempt < opts.frames; ++attempt) {
+    bool window_closed = false;
+    while (opts.frames == 0 || received < opts.frames) {
+        if (display && !display->is_open()) {
+            window_closed = true;
+            break;
+        }
         const frame_buffer& frame = session.device->get_frame(opts.timeout_ms);
-        if (frame.error == -ETIME) {
-            std::cerr << "Frame timeout\n";
-            continue;
+        if (display && !display->is_open()) {
+            window_closed = true;
+            break;
         }
         if (frame.error != 0) {
             std::cerr << "Frame error: " << frame.error << '\n';
             return 1;
         }
-        if (frame.point_cloud.empty()) {
-            std::cerr << "Frame has no point cloud\n";
+        if (frame.point_cloud.empty() || frame.cartesian_depth.empty()) {
+            std::cerr << "Frame has no depth or point cloud\n";
+            return 1;
+        }
+        try {
+            if (display) display->update(frame.cartesian_depth[0], frame.point_cloud[0]);
+        } catch (const std::exception& error) {
+            std::cerr << "Display error: " << error.what() << '\n';
             return 1;
         }
         ++received;
-        std::cout << "Frame " << received << ": id=" << frame.frame_id
-                  << ", points=" << frame.point_cloud[0].size() << '\n';
     }
     const auto elapsed = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - started_at).count();
-    std::cout << "Received " << received << '/' << opts.frames << " frames in "
+    std::cout << "Captured " << received << " frames in "
               << std::fixed << std::setprecision(2) << elapsed << "s ("
               << (elapsed > 0 ? received / elapsed : 0.0) << " FPS)\n";
     const int cleanup_result = session.finish();
-    return received == opts.frames && cleanup_result == 0 ? 0 : 1;
+    return (window_closed || opts.frames == 0 || received == opts.frames) && cleanup_result == 0 ? 0 : 1;
 }

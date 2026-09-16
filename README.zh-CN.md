@@ -2,71 +2,71 @@
 
 [English](README.md)
 
-这个仓库提供两个简洁示例：C++ 程序打印 IMX704 点云帧信息；Python 程序用 VisPy 在同一个 OpenGL 窗口并排实时显示深度图和 3D 点云，也可以将最后一帧点云保存为 NumPy `.npy` 文件。
-
-相机启动时序由驱动处理；两个示例在启动视频流后不再额外等待。
+Jetson 上的 IMX704 C++ 和 Python 示例。两个程序都在同一窗口显示实时深度图和 3D 点云；Python 可保存 `.npy` 点云。
 
 ## 运行前准备
 
-- 已连接 IMX704 相机、相机驱动正常工作的 Jetson。
-- C++：支持 C++17 的编译器、CMake 3.18+，以及 `libimx704-dev` 开发包；也可使用含 `include/imx704_camera` 和 `libimx704_camera.a` 的 SDK 安装目录。
-- Python：Python 3.8+、支持 OpenGL 的图形桌面，以及与该 Python 版本和 aarch64 平台匹配的 `arducam-imx704` wheel。[requirements.txt](requirements.txt) 安装 NumPy（低于 2）、VisPy 和 PySide6。
+- Jetson 已连接 IMX704 相机，驱动正常。两个示例不能同时占用相机。
+- C++：C++17、CMake 3.18+、GLFW 3、OpenGL、`pkg-config`，以及 `libimx704-dev` 或 SDK 安装目录。
+- Python：Python 3.8+、匹配该版本的 aarch64 `arducam-imx704` wheel，以及支持 OpenGL 的桌面环境。依赖见 [python/requirements.txt](python/requirements.txt)。
 
-相机只能被一个示例独占使用，不要同时运行 C++ 与 Python 程序。
+## C++
 
-## C++ 快速开始
-
-安装收到的 arm64 开发包，将 `VERSION` 换成实际版本号：
+将 `VERSION` 换成开发包版本号：
 
 ```bash
+sudo apt install libglfw3-dev libgl1-mesa-dev pkg-config
 sudo apt install ./libimx704-dev_VERSION_arm64.deb
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ./build/imx704_cpp_demo --list
-./build/imx704_cpp_demo --camera-index 0 --mode 311C --frames 10
+./build/imx704_cpp_demo
+./build/imx704_cpp_demo --no-display --frames 10
 ```
 
-若 SDK 没有安装到系统路径，配置时指定其安装前缀：
+SDK 不在系统路径时：
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
   -DIMX704_SDK_ROOT=/absolute/path/to/sdk-prefix
 ```
 
-`--list` 会打印相机 ID 和支持的模式。默认抓取模式为 `311C`；如相机不支持，请选择列表中的模式。
+## 取图模式
 
-## Python 快速开始
+| 编号 | 距离档位 | 功率 |
+| --- | --- | --- |
+| `311C`（默认） | 7.5 m | 高 |
+| `321C` | 7.5 m | 低 |
+| `301C` | 7.5 m | 双功率 |
+| `211C` | 20 m | 高 |
+| `221C` | 20 m | 低 |
+| `201C` | 20 m | 双功率 |
 
-创建虚拟环境并安装与 Jetson 架构、Python 版本匹配的 wheel；将示意路径换成实际 wheel 文件：
+双功率模式交替使用高、低功率。距离档位不保证实际测量距离。用 `--list` 查看相机支持的模式，再用十六进制参数指定，例如 `--mode 211C`。两个示例都配置单回波。
+
+## Python
+
+使用匹配 Jetson aarch64 和当前 Python 版本的 wheel：
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r python/requirements.txt
 .venv/bin/python -m pip install --no-deps /absolute/path/to/compatible-wheel.whl
 .venv/bin/python python/demo.py --list
 .venv/bin/python python/demo.py
 .venv/bin/python python/demo.py --frames 10 --output point_cloud.npy
 ```
 
-Python 示例默认持续运行，直到关闭显示窗口；深度图与点云在同一个 OpenGL 窗口中显示。深度图与 viewer 的相机方向一致，无效像素标为红色。用 `--frames 10` 可运行有限帧数；没有桌面时可用 `--no-display --frames 10`。保存的 `.npy` 文件是最后一帧第一回波的点云，数组形状为 `(H, W, 3)`。`--no-deps` 用于保留 `requirements.txt` 指定的 NumPy 版本。
+`--no-deps` 会保留 `python/requirements.txt` 指定的 NumPy 版本。`.npy` 保存最后一帧第一回波的点云，形状为 `(H, W, 3)`。
 
-## 常用参数
+## 操作
 
-| 用途 | C++ | Python |
+| 参数 | C++ | Python |
 | --- | --- | --- |
-| 相机索引 | `--camera-index 0` | `--camera-index 0` |
-| 取图模式 | `--mode 311C` | `--mode 311C` |
-| 帧数 | `--frames 10` | `--frames 10`（`0` = 直到关闭窗口） |
-| 单帧超时 | `--timeout-ms 100` | 固定 1000 ms |
+| 相机 | `--camera-index 0` | `--camera-index 0` |
+| 模式 | `--mode 311C` | `--mode 311C` |
+| 帧数限制 | `--frames 10` | `--frames 10` |
+| 不显示窗口 | `--no-display --frames 10` | `--no-display --frames 10` |
+| 单帧超时 | `--timeout-ms 1000` | 固定 1000 ms |
 
-完整命令行帮助见 `--help`。C++ 示例未收到全部请求帧时会返回非零状态；Python 示例遇到取帧错误即停止。正常完成或处理错误后，两个程序都会释放相机。
-
-## 验证范围
-
-无相机时可以编译 C++ 示例并运行 Python 测试：
-
-```bash
-python3 -m unittest discover -s tests
-```
-
-实际视频流和图像质量仍须在目标 Jetson 与相机上验证；本仓库不声明已经完成实机取帧测试。
+默认持续运行，直到关闭窗口。C++ 可按住左键旋转点云、滚轮缩放，按 Escape 退出；无效深度像素显示为红色。其他参数见 `--help`。
