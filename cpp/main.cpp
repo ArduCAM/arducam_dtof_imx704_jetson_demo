@@ -6,7 +6,6 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <thread>
 
 #include <imx704_camera/camera.h>
 #include <imx704_camera/camera_manager.h>
@@ -21,12 +20,11 @@ struct options {
     unsigned int mode = 0x311C;
     unsigned int frames = 10;
     unsigned int timeout_ms = 100;
-    unsigned int startup_delay_ms = 2000;
 };
 
 void usage(const char* name) {
     std::cout << "Usage: " << name << " [--list] [--camera-index N] [--mode HEX]"
-              << " [--frames N] [--timeout-ms N] [--startup-delay-ms N]\n";
+              << " [--frames N] [--timeout-ms N]\n";
 }
 
 bool parse_unsigned(const char* text, unsigned int& value, int base = 10) {
@@ -58,7 +56,6 @@ bool parse_args(int argc, char** argv, options& opts) {
         else if (arg == "--mode") { target = &opts.mode; base = 16; }
         else if (arg == "--frames") target = &opts.frames;
         else if (arg == "--timeout-ms") target = &opts.timeout_ms;
-        else if (arg == "--startup-delay-ms") target = &opts.startup_delay_ms;
         else return false;
         if (!parse_unsigned(argv[++i], *target, base)) return false;
     }
@@ -166,8 +163,6 @@ int main(int argc, char** argv) {
         return 1;
     }
     session.streaming = true;
-    // On Jetson the camera MCU initializes after stream-on, not before it.
-    std::this_thread::sleep_for(std::chrono::milliseconds(opts.startup_delay_ms));
 
     const auto started_at = std::chrono::steady_clock::now();
     unsigned int received = 0;

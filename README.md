@@ -4,7 +4,7 @@
 
 Minimal C++ and Python examples for IMX704 on Jetson. The C++ example prints point-cloud frame information. The Python example displays a live depth image and 3D point cloud side by side, and can save the last point cloud as a NumPy `.npy` file.
 
-The camera board begins initializing after stream-on. Both examples therefore wait **2 seconds after starting the stream**, before requesting the first frame. You can adjust or disable that delay with a command-line option.
+Camera startup timing is handled by the driver; neither example adds a delay after starting the stream.
 
 ## Requirements
 
@@ -58,7 +58,6 @@ By default, the Python example runs until you close its window. VisPy shows dept
 | Capture mode | `--mode 311C` | `--mode 311C` |
 | Number of frames | `--frames 10` | `--frames 10` (`0` = until window closes) |
 | Per-frame timeout | `--timeout-ms 100` | 1000 ms |
-| Post-stream-on delay | `--startup-delay-ms 2000` | `--startup-delay 2` |
 
 Use `--help` for the full CLI help. The C++ example returns a non-zero status if it cannot receive all requested frames; the Python example stops on the first frame error. Both release the camera on normal completion and handled errors.
 

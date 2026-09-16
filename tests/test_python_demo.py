@@ -2,7 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 
@@ -54,18 +54,18 @@ class FakeApi:
 
 
 class DemoTests(unittest.TestCase):
-    def test_headless_capture_waits_after_start_and_cleans_up(self):
+    def test_headless_capture_starts_without_delay_and_cleans_up(self):
         camera = FakeCamera()
         args = demo.parse_args(["--frames", "2", "--no-display"])
         with patch.object(demo.time, "sleep") as sleep:
             demo.run(FakeApi(camera), args)
-        sleep.assert_called_once_with(2.0)
+        sleep.assert_not_called()
         self.assertEqual(camera.calls,
                          ["configure", "start", "get_frame", "get_frame", "stop", "close"])
 
     def test_frame_failure_still_stops_and_closes(self):
         camera = FakeCamera(fail=True)
-        args = demo.parse_args(["--frames", "1", "--no-display", "--startup-delay", "0"])
+        args = demo.parse_args(["--frames", "1", "--no-display"])
         with self.assertRaisesRegex(RuntimeError, "frame failed"):
             demo.run(FakeApi(camera), args)
         self.assertEqual(camera.calls,
@@ -85,22 +85,44 @@ class DemoTests(unittest.TestCase):
     def test_saves_last_cloud(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "cloud.npy"
-            args = demo.parse_args(["--frames", "1", "--no-display", "--startup-delay", "0",
+            args = demo.parse_args(["--frames", "1", "--no-display",
                                     "--output", str(output)])
             demo.run(FakeApi(FakeCamera()), args)
             self.assertEqual(np.load(output).shape, (2, 3, 3))
 
     def test_display_updates_and_closes(self):
         camera = FakeCamera()
-        args = demo.parse_args(["--frames", "1", "--startup-delay", "0"])
+        args = demo.parse_args(["--frames", "1"])
         with patch.object(demo, "LiveDisplay") as display_class:
-            display_class.return_value.closed = False
+            display_class.return_value.is_open.return_value = True
             demo.run(FakeApi(camera), args)
         display = display_class.return_value
         display.update.assert_called_once()
         display.close.assert_called_once()
         self.assertIn("stop", camera.calls)
         self.assertIn("close", camera.calls)
+
+    def test_closing_window_stops_live_capture_and_exits(self):
+        camera = FakeCamera()
+        args = demo.parse_args([])
+        with patch.object(demo, "LiveDisplay") as display_class:
+            display_class.return_value.is_open.side_effect = [True, True, False]
+            demo.run(FakeApi(camera), args)
+        self.assertEqual(camera.calls,
+                         ["configure", "start", "get_frame", "stop", "close"])
+        display_class.return_value.close.assert_called_once()
+
+    def test_hidden_native_window_counts_as_closed(self):
+        display = demo.LiveDisplay.__new__(demo.LiveDisplay)
+        display.app = Mock()
+        display.canvas = Mock()
+        display.canvas.native.isVisible.return_value = False
+        display.closed = False
+        self.assertFalse(display.is_open())
+        display.canvas.native.isVisible.return_value = True
+        self.assertTrue(display.is_open())
+        display.closed = True
+        self.assertFalse(display.is_open())
 
     def test_depth_matches_viewer_orientation_and_invalid_color(self):
         depth = np.array([[0, 100, 200], [300, 400, np.nan]], dtype=np.float32)
@@ -116,8 +138,7 @@ class DemoTests(unittest.TestCase):
 
     def test_hex_mode_with_prefix(self):
         camera = FakeCamera()
-        args = demo.parse_args(["--mode", "0x311C", "--frames", "1", "--no-display",
-                                "--startup-delay", "0"])
+        args = demo.parse_args(["--mode", "0x311C", "--frames", "1", "--no-display"])
         demo.run(FakeApi(camera), args)
         self.assertIn("get_frame", camera.calls)
 
@@ -125,7 +146,7 @@ class DemoTests(unittest.TestCase):
         camera = FakeCamera()
         with patch.object(demo, "LiveDisplay", side_effect=RuntimeError("no OpenGL")):
             with self.assertRaisesRegex(RuntimeError, "no OpenGL"):
-                demo.run(FakeApi(camera), demo.parse_args(["--startup-delay", "0"]))
+                demo.run(FakeApi(camera), demo.parse_args([]))
         self.assertEqual(camera.calls, ["configure", "start", "stop", "close"])
 
 

@@ -1,7 +1,6 @@
 """Show live IMX704 depth and point-cloud frames."""
 
 import argparse
-import math
 import sys
 import time
 from pathlib import Path
@@ -16,8 +15,6 @@ def parse_args(argv=None):
     parser.add_argument("--mode", default="311C", help="Sensor mode in hex (default: 311C)")
     parser.add_argument("--frames", type=int, default=0,
                         help="Frames to capture; 0 runs until the window closes")
-    parser.add_argument("--startup-delay", type=float, default=2.0,
-                        help="Seconds to wait after stream-on (default: 2)")
     parser.add_argument("--no-display", action="store_true", help="Capture without opening a window")
     parser.add_argument("--output", type=Path, help="Save the last point cloud to a .npy file")
     return parser.parse_args(argv)
@@ -53,6 +50,13 @@ class LiveDisplay:
 
     def _on_close(self, event):
         self.closed = True
+
+    def is_open(self):
+        self.app.process_events()
+        if self.closed:
+            return False
+        native = self.canvas.native
+        return not hasattr(native, "isVisible") or native.isVisible()
 
     def update(self, depth, cloud):
         self.image.set_data(colorize_depth(depth, self.cmap))
@@ -95,9 +99,8 @@ def colorize_depth(depth, cmap):
 
 
 def run(camera_api, args):
-    if (args.camera_index < 0 or args.frames < 0 or
-            not math.isfinite(args.startup_delay) or args.startup_delay < 0):
-        raise ValueError("Invalid camera index, frame count, or startup delay")
+    if args.camera_index < 0 or args.frames < 0:
+        raise ValueError("Invalid camera index or frame count")
     if args.no_display and args.frames == 0 and not args.list:
         raise ValueError("--no-display requires --frames greater than 0")
     if args.output and args.output.suffix != ".npy":
@@ -131,8 +134,6 @@ def run(camera_api, args):
         camera.configure(sync_mode="master", number_of_echo=1)
         camera.start()
         streaming = True
-        if args.startup_delay:
-            time.sleep(args.startup_delay)
 
         if not args.no_display:
             display = LiveDisplay()
@@ -141,11 +142,11 @@ def run(camera_api, args):
         last_cloud = None
         started_at = time.monotonic()
         while args.frames == 0 or count < args.frames:
-            if display is not None:
-                display.app.process_events()
-            if display is not None and display.closed:
+            if display is not None and not display.is_open():
                 break
             frame = camera.get_frame(1000)
+            if display is not None and not display.is_open():
+                break
             depth, cloud = frame["cartesian_depth"][0], frame["point_cloud"][0]
             if depth.ndim != 2 or cloud.shape != depth.shape + (3,):
                 raise RuntimeError("Unexpected depth or point-cloud shape")
