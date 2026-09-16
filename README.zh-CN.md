@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-这个仓库提供两个简洁示例：在 Jetson 上用 C++ 或 Python 发现 IMX704 相机并抓取点云帧。Python 示例还可以将最后一帧第一回波的点云保存为 NumPy `.npy` 文件。
+这个仓库提供两个简洁示例：C++ 程序打印 IMX704 点云帧信息；Python 程序在同一个窗口并排实时显示深度图和 3D 点云，也可以将最后一帧点云保存为 NumPy `.npy` 文件。
 
 相机板会在 stream-on 后开始初始化，因此两个示例均在**启动视频流后等待 2 秒**，再请求第一帧。等待时间可通过命令行参数调整或设为 0。
 
@@ -10,7 +10,7 @@
 
 - 已连接 IMX704 相机、相机驱动正常工作的 Jetson。
 - C++：支持 C++17 的编译器、CMake 3.18+，以及 `libimx704-dev` 开发包；也可使用含 `include/imx704_camera` 和 `libimx704_camera.a` 的 SDK 安装目录。
-- Python：Python 3.8+、与该 Python 版本和 aarch64 平台匹配的 `arducam-imx704` wheel。[requirements.txt](requirements.txt) 将 NumPy 限定在 2 以下。
+- Python：Python 3.8+、可用的 Matplotlib 图形后端（Tk 或 Qt）及图形桌面，以及与该 Python 版本和 aarch64 平台匹配的 `arducam-imx704` wheel。[requirements.txt](requirements.txt) 安装 NumPy（低于 2）和 Matplotlib。
 
 相机只能被一个示例独占使用，不要同时运行 C++ 与 Python 程序。
 
@@ -43,12 +43,12 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip install --no-deps /absolute/path/to/compatible-wheel.whl
-.venv/bin/python python/demo.py list
-.venv/bin/python python/demo.py capture --camera-index 0 --mode 311C --frames 10
-.venv/bin/python python/demo.py capture --frames 10 --output point_cloud.npy
+.venv/bin/python python/demo.py --list
+.venv/bin/python python/demo.py
+.venv/bin/python python/demo.py --frames 10 --output point_cloud.npy
 ```
 
-保存的 `.npy` 文件是最后一帧第一回波的点云，数组形状为 `(H, W, 3)`。`--no-deps` 用于保留 `requirements.txt` 指定的 NumPy 版本。
+Python 示例默认持续运行，直到关闭显示窗口；深度图与点云在同一个窗口中显示。用 `--frames 10` 可运行有限帧数；没有桌面时可用 `--no-display --frames 10`。保存的 `.npy` 文件是最后一帧第一回波的点云，数组形状为 `(H, W, 3)`。`--no-deps` 用于保留 `requirements.txt` 指定的 NumPy 版本。
 
 ## 常用参数
 
@@ -56,8 +56,8 @@ python3 -m venv .venv
 | --- | --- | --- |
 | 相机索引 | `--camera-index 0` | `--camera-index 0` |
 | 取图模式 | `--mode 311C` | `--mode 311C` |
-| 帧数 | `--frames 10` | `--frames 10` |
-| 单帧超时 | `--timeout-ms 100` | `--timeout-ms 100` |
+| 帧数 | `--frames 10` | `--frames 10`（`0` = 直到关闭窗口） |
+| 单帧超时 | `--timeout-ms 100` | 固定 1000 ms |
 | stream-on 后等待 | `--startup-delay-ms 2000` | `--startup-delay 2` |
 
 完整命令行帮助见 `--help`。C++ 示例未收到全部请求帧时会返回非零状态；Python 示例遇到取帧错误即停止。正常完成或处理错误后，两个程序都会释放相机。

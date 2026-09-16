@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Minimal C++ and Python examples for discovering an IMX704 camera and capturing point-cloud frames on Jetson. The Python example can save the last frame's first-echo point cloud as a NumPy `.npy` file.
+Minimal C++ and Python examples for IMX704 on Jetson. The C++ example prints point-cloud frame information. The Python example displays a live depth image and 3D point cloud side by side, and can save the last point cloud as a NumPy `.npy` file.
 
 The camera board begins initializing after stream-on. Both examples therefore wait **2 seconds after starting the stream**, before requesting the first frame. You can adjust or disable that delay with a command-line option.
 
@@ -10,7 +10,7 @@ The camera board begins initializing after stream-on. Both examples therefore wa
 
 - A Jetson with a connected IMX704 camera and a working camera driver.
 - For C++: a C++17 compiler, CMake 3.18+, and the `libimx704-dev` package (or an SDK prefix containing `include/imx704_camera` and `libimx704_camera.a`).
-- For Python: Python 3.8+ and an `arducam-imx704` wheel matching your Python version and aarch64 platform. NumPy is pinned below version 2 in [requirements.txt](requirements.txt).
+- For Python: Python 3.8+, a graphical desktop with a usable Matplotlib GUI backend (Tk or Qt), and an `arducam-imx704` wheel matching your Python version and aarch64 platform. [requirements.txt](requirements.txt) installs NumPy below version 2 and Matplotlib.
 
 Only one example can hold the camera at a time.
 
@@ -43,12 +43,12 @@ Create a virtual environment and install a wheel built for the Jetson's architec
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip install --no-deps /absolute/path/to/compatible-wheel.whl
-.venv/bin/python python/demo.py list
-.venv/bin/python python/demo.py capture --camera-index 0 --mode 311C --frames 10
-.venv/bin/python python/demo.py capture --frames 10 --output point_cloud.npy
+.venv/bin/python python/demo.py --list
+.venv/bin/python python/demo.py
+.venv/bin/python python/demo.py --frames 10 --output point_cloud.npy
 ```
 
-The saved `.npy` file contains the last frame's first-echo point cloud as an `(H, W, 3)` array. The `--no-deps` install keeps the NumPy version selected by `requirements.txt`.
+By default, the Python example runs until you close its window. It shows depth and point cloud in one window. Use `--frames 10` for a finite run, or `--no-display --frames 10` on a machine without a desktop. The saved `.npy` file contains the last frame's first-echo point cloud as an `(H, W, 3)` array. The `--no-deps` install keeps the NumPy version selected by `requirements.txt`.
 
 ## Common options
 
@@ -56,8 +56,8 @@ The saved `.npy` file contains the last frame's first-echo point cloud as an `(H
 | --- | --- | --- |
 | Camera index | `--camera-index 0` | `--camera-index 0` |
 | Capture mode | `--mode 311C` | `--mode 311C` |
-| Number of frames | `--frames 10` | `--frames 10` |
-| Per-frame timeout | `--timeout-ms 100` | `--timeout-ms 100` |
+| Number of frames | `--frames 10` | `--frames 10` (`0` = until window closes) |
+| Per-frame timeout | `--timeout-ms 100` | 1000 ms |
 | Post-stream-on delay | `--startup-delay-ms 2000` | `--startup-delay 2` |
 
 Use `--help` for the full CLI help. The C++ example returns a non-zero status if it cannot receive all requested frames; the Python example stops on the first frame error. Both release the camera on normal completion and handled errors.
