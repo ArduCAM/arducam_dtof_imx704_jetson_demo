@@ -7,16 +7,14 @@ IMX704 C++ and Python demos for Jetson. Both show live depth and 3D point cloud 
 ## Requirements
 
 - Jetson with an IMX704 camera and working driver. Only one demo can use the camera at a time.
-- C++: C++17, CMake 3.18+, GLFW 3, OpenGL, `pkg-config`, and `libimx704-dev` or an SDK prefix.
+- C++: C++17, CMake 3.18+, GLFW 3, OpenGL, `pkg-config`, and `libarducam-imx704-dev` or an SDK prefix.
 - Python: Python 3.8+, an aarch64 `arducam-imx704` wheel for that Python version, and an OpenGL desktop. Dependencies: [python/requirements.txt](python/requirements.txt).
 
 ## C++
 
-Replace `VERSION` with the package version:
-
 ```bash
 sudo apt install libglfw3-dev libgl1-mesa-dev pkg-config
-sudo apt install ./libimx704-dev_VERSION_arm64.deb
+sudo apt install ./libarducam-imx704-dev_1.0.0_arm64.deb
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ./build/imx704_cpp_demo --list

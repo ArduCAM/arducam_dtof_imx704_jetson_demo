@@ -8,12 +8,12 @@ find_path(IMX704_INCLUDE_DIR
     HINTS "${IMX704_SDK_ROOT}/include"
 )
 find_library(IMX704_CAMERA_LIBRARY
-    NAMES imx704_camera
+    NAMES arducam_imx704_camera
     HINTS "${IMX704_SDK_ROOT}/lib" "${IMX704_SDK_ROOT}/lib/aarch64-linux-gnu"
 )
 
 if(NOT IMX704_INCLUDE_DIR OR NOT IMX704_CAMERA_LIBRARY)
-    message(FATAL_ERROR "IMX704 C++ development library not found. Set -DIMX704_SDK_ROOT=<install-prefix> or install libimx704-dev.")
+    message(FATAL_ERROR "IMX704 C++ development library not found. Set -DIMX704_SDK_ROOT=<install-prefix> or install libarducam-imx704-dev.")
 endif()
 
 find_package(Threads REQUIRED)

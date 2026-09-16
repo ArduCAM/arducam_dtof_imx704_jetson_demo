@@ -7,16 +7,14 @@ Jetson 上的 IMX704 C++ 和 Python 示例。两个程序都在同一窗口显�
 ## 运行前准备
 
 - Jetson 已连接 IMX704 相机，驱动正常。两个示例不能同时占用相机。
-- C++：C++17、CMake 3.18+、GLFW 3、OpenGL、`pkg-config`，以及 `libimx704-dev` 或 SDK 安装目录。
+- C++：C++17、CMake 3.18+、GLFW 3、OpenGL、`pkg-config`，以及 `libarducam-imx704-dev` 或 SDK 安装目录。
 - Python：Python 3.8+、匹配该版本的 aarch64 `arducam-imx704` wheel，以及支持 OpenGL 的桌面环境。依赖见 [python/requirements.txt](python/requirements.txt)。
 
 ## C++
 
-将 `VERSION` 换成开发包版本号：
-
 ```bash
 sudo apt install libglfw3-dev libgl1-mesa-dev pkg-config
-sudo apt install ./libimx704-dev_VERSION_arm64.deb
+sudo apt install ./libarducam-imx704-dev_1.0.0_arm64.deb
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ./build/imx704_cpp_demo --list
