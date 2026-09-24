@@ -32,6 +32,7 @@ class LiveDisplay:
         self.app = self.canvas.app
         self.closed = False
         self.canvas.events.close.connect(self._on_close)
+        self.canvas.events.key_press.connect(self._on_key_press)
         grid = self.canvas.central_widget.add_grid()
         depth_view = grid.add_view(row=0, col=0)
         depth_view.camera = scene.PanZoomCamera(aspect=1)
@@ -50,6 +51,10 @@ class LiveDisplay:
 
     def _on_close(self, event):
         self.closed = True
+
+    def _on_key_press(self, event):
+        if str(event.key).lower() == "q":
+            self.close()
 
     def is_open(self):
         self.app.process_events()

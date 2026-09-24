@@ -67,4 +67,4 @@ python3 -m venv .venv
 | No window | `--no-display --frames 10` | `--no-display --frames 10` |
 | Frame timeout | `--timeout-ms 1000` | 1000 ms |
 
-Default: live until the window closes. C++: left-drag rotates the cloud, scroll zooms, Escape exits. Invalid depth pixels are red. See `--help` for more options.
+Default: live until the window closes. Press Q in either window to exit. C++: left-drag rotates the cloud, scroll zooms, and Escape also exits. Invalid depth pixels are red. See `--help` for more options.

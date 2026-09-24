@@ -92,7 +92,8 @@ LiveDisplay::~LiveDisplay() {
 
 bool LiveDisplay::is_open() {
     glfwPollEvents();
-    if (glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+    if (glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS ||
+        glfwGetKey(window_, GLFW_KEY_Q) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window_, GLFW_TRUE);
     }
     return glfwWindowShouldClose(window_) == GLFW_FALSE;
