@@ -8,13 +8,14 @@ IMX704 C++ and Python demos for Jetson. Both show live depth and 3D point cloud 
 
 - Jetson with an IMX704 camera and working driver. Only one demo can use the camera at a time.
 - C++: C++17, CMake 3.18+, GLFW 3, OpenGL, `pkg-config`, and `libarducam-imx704-dev` or an SDK prefix.
-- Python: Python 3.8+, an aarch64 `arducam-imx704` wheel for that Python version, and an OpenGL desktop. Dependencies: [python/requirements.txt](python/requirements.txt).
+- Python: Python 3.8+, an aarch64 `arducam_imx704` wheel for that Python version, and an OpenGL desktop. Dependencies: [python/requirements.txt](python/requirements.txt).
 
 ## C++
 
+Ensure your APT source provides `libarducam-imx704-dev`.
+
 ```bash
-sudo apt install libglfw3-dev libgl1-mesa-dev pkg-config
-sudo apt install ./libarducam-imx704-dev_1.0.0_arm64.deb
+sudo apt install libarducam-imx704-dev libglfw3-dev libgl1-mesa-dev pkg-config
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ./build/imx704_cpp_demo --list
@@ -44,18 +45,17 @@ Dual modes alternate high and low power. Range class is not a guaranteed measure
 
 ## Python
 
-Use a wheel matching Jetson aarch64 and your Python version:
+Ensure your pip package index provides an `arducam_imx704` wheel matching Jetson aarch64 and your Python version:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -r python/requirements.txt
-.venv/bin/python -m pip install --no-deps /absolute/path/to/compatible-wheel.whl
 .venv/bin/python python/demo.py --list
 .venv/bin/python python/demo.py
 .venv/bin/python python/demo.py --frames 10 --output point_cloud.npy
 ```
 
-`--no-deps` keeps the NumPy version from `python/requirements.txt`. The `.npy` output is the last frame's first-echo cloud, shape `(H, W, 3)`.
+The `.npy` output is the last frame's first-echo cloud, shape `(H, W, 3)`.
 
 ## Controls
 
