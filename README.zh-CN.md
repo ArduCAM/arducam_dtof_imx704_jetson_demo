@@ -16,7 +16,16 @@ Jetson 上的 IMX704 C++ 和 Python 示例。两个程序都在同一窗口显�
 
 ### C++
 
-确保 APT 软件源提供 `libarducam-imx704-dev`。
+首次安装时，按 [Arducam PPA](https://github.com/ArduCAM/arducam_ppa#usage) 的说明添加 APT 软件源。以下命令适用于 Jetson 的 Ubuntu 系统：
+
+```bash
+curl -s --compressed "https://arducam.github.io/arducam_ppa/KEY.gpg" | sudo apt-key add -
+sudo curl -s --compressed -o /etc/apt/sources.list.d/arducam_list_files.list \
+  "https://arducam.github.io/arducam_ppa/arducam_list_files.list"
+sudo apt update
+```
+
+安装 SDK deb 开发库和 demo 所需依赖：
 
 ```bash
 sudo apt install libarducam-imx704-dev

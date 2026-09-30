@@ -16,7 +16,16 @@ Run the following commands from the repository root.
 
 ### C++
 
-Ensure your APT source provides `libarducam-imx704-dev`.
+For the first installation, add the APT repository following the [Arducam PPA instructions](https://github.com/ArduCAM/arducam_ppa#usage). Use the following commands on Jetson Ubuntu systems:
+
+```bash
+curl -s --compressed "https://arducam.github.io/arducam_ppa/KEY.gpg" | sudo apt-key add -
+sudo curl -s --compressed -o /etc/apt/sources.list.d/arducam_list_files.list \
+  "https://arducam.github.io/arducam_ppa/arducam_list_files.list"
+sudo apt update
+```
+
+Install the SDK deb development package and the demo dependencies:
 
 ```bash
 sudo apt install libarducam-imx704-dev
