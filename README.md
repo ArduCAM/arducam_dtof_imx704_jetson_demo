@@ -10,25 +10,59 @@ IMX704 C++ and Python demos for Jetson. Both show live depth and 3D point cloud 
 - C++: C++17, CMake 3.18+, GLFW 3, OpenGL, `pkg-config`, and `libarducam-imx704-dev` or an SDK prefix.
 - Python: Python 3.8+, an aarch64 `arducam_imx704` wheel for that Python version, and an OpenGL desktop. Dependencies: [python/requirements.txt](python/requirements.txt).
 
-## C++
+## Install SDK and dependencies
+
+Run the following commands from the repository root.
+
+### C++
 
 Ensure your APT source provides `libarducam-imx704-dev`.
 
 ```bash
-sudo apt install libarducam-imx704-dev libglfw3-dev libgl1-mesa-dev pkg-config
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-./build/imx704_cpp_demo --list
-./build/imx704_cpp_demo
-./build/imx704_cpp_demo --no-display --frames 10
+sudo apt install libarducam-imx704-dev
+sudo apt install libglfw3-dev libgl1-mesa-dev pkg-config
 ```
 
-For an SDK installed outside system paths:
+### Python
+
+Ensure your pip package index provides an `arducam_imx704` wheel matching Jetson aarch64 and your Python version. The requirements file includes the SDK and display dependencies.
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r python/requirements.txt
+```
+
+## Build and run the demos
+
+### C++
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+For an SDK installed outside system paths, replace the CMake configuration command above with:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
   -DIMX704_SDK_ROOT=/absolute/path/to/sdk-prefix
 ```
+
+```bash
+./build/imx704_cpp_demo --list
+./build/imx704_cpp_demo
+./build/imx704_cpp_demo --no-display --frames 10
+```
+
+### Python
+
+```bash
+.venv/bin/python python/demo.py --list
+.venv/bin/python python/demo.py
+.venv/bin/python python/demo.py --frames 10 --output point_cloud.npy
+```
+
+The `.npy` output is the last frame's first-echo cloud, shape `(H, W, 3)`.
 
 ## Modes
 
@@ -42,20 +76,6 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
 | `201C` | 20 m | Dual |
 
 Dual modes alternate high and low power. Range class is not a guaranteed measurement distance. Run `--list` to check supported modes; set one with `--mode 211C` (hexadecimal). Both demos use one echo.
-
-## Python
-
-Ensure your pip package index provides an `arducam_imx704` wheel matching Jetson aarch64 and your Python version:
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r python/requirements.txt
-.venv/bin/python python/demo.py --list
-.venv/bin/python python/demo.py
-.venv/bin/python python/demo.py --frames 10 --output point_cloud.npy
-```
-
-The `.npy` output is the last frame's first-echo cloud, shape `(H, W, 3)`.
 
 ## Controls
 
